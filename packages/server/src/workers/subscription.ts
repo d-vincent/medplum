@@ -40,6 +40,7 @@ import fetch from 'node-fetch';
 import { createHmac } from 'node:crypto';
 import type { Operation } from 'rfc6902';
 import { executeBot } from '../bots/execute';
+import type { BotExecutionResult } from '../bots/types';
 import { getConfig } from '../config/loader';
 import type { SubscriptionAutoDisableTrigger } from '../config/types';
 import { WEBSOCKET_SUB_PUBLISH_CHANNEL } from '../constants';
@@ -906,17 +907,43 @@ async function execBot(
   const body = interaction === 'delete' ? { deletedResource: resource } : resource;
   const headers = buildRestHookHeaders(job, subscription, resource, interaction, JSON.stringify(body));
 
-  await executeBot({
+  let result: BotExecutionResult;
+  try {
+    result = await executeBot({
+      subscription,
+      bot,
+      runAs,
+      requester,
+      input: body,
+      contentType: ContentType.FHIR_JSON,
+      requestTime,
+      traceId: ctx.traceId,
+      headers,
+    });
+  } catch (ex) {
+    await createSubscriptionAuditEvent(
+      systemRepo,
+      resource,
+      requestTime,
+      AuditEventOutcome.MinorFailure,
+      `Attempt ${job.attemptsMade} bot execution error: ${ex}`,
+      subscription,
+      bot,
+      ['log']
+    );
+    throw ex;
+  }
+
+  await createSubscriptionAuditEvent(
+    systemRepo,
+    resource,
+    requestTime,
+    result.success ? AuditEventOutcome.Success : AuditEventOutcome.MinorFailure,
+    `Attempt ${job.attemptsMade} bot execution ${result.success ? 'succeeded' : 'failed'}: ${result.logResult}`,
     subscription,
     bot,
-    runAs,
-    requester,
-    input: body,
-    contentType: ContentType.FHIR_JSON,
-    requestTime,
-    traceId: ctx.traceId,
-    headers,
-  });
+    ['log']
+  );
 }
 
 async function catchJobError(
