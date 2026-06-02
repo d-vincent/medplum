@@ -9,7 +9,7 @@ import {
   indexSearchParameterBundle,
   indexStructureDefinitionBundle,
   isString,
-  SearchParameterType
+  SearchParameterType,
 } from '@medplum/core';
 import { readJson, SEARCH_PARAMETER_BUNDLE_FILES } from '@medplum/definitions';
 import type { Bundle, ResourceType, SearchParameter } from '@medplum/fhirtypes';
@@ -1307,8 +1307,18 @@ function getIndexName(tableName: string, index: IndexDefinition): string {
     return tableName + '_pkey';
   }
 
-  if (index.columns.length === 2 && isString(index.columns[0]) && isString(index.columns[1]) && index.columns[1] === `${index.columns[0]}Sort`) {
-    return applyAbbreviations(tableName, TableNameAbbreviations) + '_' + applyAbbreviations(index.columns[0], ColumnNameAbbreviations) + '_sorted_idx';
+  if (
+    index.columns.length === 2 &&
+    isString(index.columns[0]) &&
+    isString(index.columns[1]) &&
+    index.columns[1] === `${index.columns[0]}Sort`
+  ) {
+    return (
+      applyAbbreviations(tableName, TableNameAbbreviations) +
+      '_' +
+      applyAbbreviations(index.columns[0], ColumnNameAbbreviations) +
+      '_sorted_idx'
+    );
   }
 
   let indexName = applyAbbreviations(tableName, TableNameAbbreviations) + '_';
